@@ -46,6 +46,20 @@
 - (void)updateDocument:(id)params;
 
 /**
+ Returns a a query in the provided Firestore collection.
+ - Parameter callback: The callback to be invoked if either the documents were fetched or an error occurred.
+ - Parameter collection: The name of the collection.
+ - Parameter document: The name of the document.
+- Parameter field: The name of the field.
+- Parameter opStr: The operator.
+- opstr: "<", "<=", "==", ">=", ">", "array-contains", "in", "array-contains-any"
+- Parameter value: The value.
+- Parameter filters: Array of values.
+*/
+
+- (void)queryDocuments:(id)params;
+
+/**
  Removes a new document from the provided Firestore collection.
  
  - Parameter callback: The callback to be invoked if either the document was removed or an error occurred.
