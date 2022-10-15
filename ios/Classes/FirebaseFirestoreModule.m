@@ -134,4 +134,56 @@
   return [[FirebaseFirestoreFieldValueProxy alloc] _initWithPageContext:pageContext andFieldValue:fieldValue];
 }
 
+- (void)queryDocuments:(id)params
+{
+  ENSURE_SINGLE_ARG(params, NSDictionary);
+
+  KrollCallback *callback = params[@"callback"];
+  NSString *collection = params[@"collection"];
+  NSString *document = params[@"document"];
+  NSString *field = params[@"field"];
+  NSString *opStr = params[@"opStr"];
+  NSString *value = params[@"value"];
+  NSMutableArray *filters = params[@"filters"];
+    
+    
+    FIRQuery *query;
+
+    if ([opStr isEqualToString:@"=="]) {
+              query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field isEqualTo:value];
+       } else if ([opStr isEqualToString:@">"]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field isGreaterThan:value];
+       } else if ([opStr isEqualToString:@">="]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field isGreaterThanOrEqualTo:value];
+       } else if ([opStr isEqualToString:@"<"]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field isLessThan:value];
+       } else if ([opStr isEqualToString:@"<="]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field isLessThanOrEqualTo:value];
+       } else if ([opStr isEqualToString:@"in"]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field in:filters];
+       }else if ([opStr isEqualToString:@"array-contains"]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field arrayContains:filters];
+       }else if ([opStr isEqualToString:@"array-contains-any"]) {
+          query = [[FIRFirestore.firestore collectionWithPath:collection] queryWhereField:field arrayContainsAny:filters];
+       }else {
+           NSLog(@"Unknown operator type %s", [self convertString:opStr]);
+       }
+
+
+ 
+ [ query getDocumentsWithCompletion:^(FIRQuerySnapshot * _Nullable snapshot, NSError * _Nullable error) {
+    if (error != nil) {
+      [callback call:@[@{ @"success": @(NO), @"error": error.localizedDescription }] thisObject:self];
+      return;
+    }
+
+    NSMutableArray<NSDictionary<NSString *, id> *> *documents = [NSMutableArray arrayWithCapacity:snapshot.documents.count];
+
+    [snapshot.documents enumerateObjectsUsingBlock:^(FIRQueryDocumentSnapshot * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+      [documents addObject:[obj data]];
+    }];
+
+    [callback call:@[@{ @"success": @(YES), @"documents": documents }] thisObject:self];
+  }];
+}
 @end
