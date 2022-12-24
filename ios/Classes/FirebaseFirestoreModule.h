@@ -67,4 +67,12 @@
  */
 - (FirebaseFirestoreFieldValueProxy *)increment:(id)value;
 
+- (void)batchSetCollectionDataWithParams:(id)params;
+
+- (void)setCollectionData:(id)params;
+
+- (void)setAndMergeDocument:(id)params;
+
+- (void)updateSetMergeDocument:(id)params;
+
 @end

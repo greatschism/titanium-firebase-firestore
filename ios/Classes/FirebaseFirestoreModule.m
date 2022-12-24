@@ -16,49 +16,54 @@
 
 #pragma mark Internal
 
-- (id)moduleGUID
-{
+- (id)moduleGUID {
   return @"01ba870c-6842-4b23-a8db-eb1eaffebf3f";
 }
 
-- (NSString *)moduleId
-{
+- (NSString *)moduleId {
   return @"firebase.firestore";
 }
 
-- (void)addDocument:(id)params
-{
+- (void)addDocument:(id)params {
   ENSURE_SINGLE_ARG(params, NSDictionary);
 
   KrollCallback *callback = params[@"callback"];
   NSString *collection = params[@"collection"];
-  NSDictionary *data = params[@"data"]; // TODO: Parse "FIRFieldValue" proxy types
+  NSDictionary *data =
+      params[@"data"];  // TODO: Parse "FIRFieldValue" proxy types
 
-  __block FIRDocumentReference *ref = [[FIRFirestore.firestore collectionWithPath:collection] addDocumentWithData:data
-                                                                                                       completion:^(NSError *_Nullable error) {
-                                                                                                         if (error != nil) {
-                                                                                                           [callback call:@[ @{@"success" : @(NO),
-                                                                                                             @"error" : error.localizedDescription} ]
-                                                                                                               thisObject:self];
-                                                                                                           return;
-                                                                                                         }
+  __block FIRDocumentReference *ref =
+      [[FIRFirestore.firestore collectionWithPath:collection]
+          addDocumentWithData:data
+                   completion:^(NSError *_Nullable error) {
+                     if (error != nil) {
+                       [callback call:@[ @{
+                                   @"success" : @(NO),
+                                   @"error" : error.localizedDescription
+                                 } ]
+                           thisObject:self];
+                       return;
+                     }
 
-                                                                                                         [callback call:@[ @{@"success" : @(YES),
-                                                                                                           @"documentID" : NULL_IF_NIL(ref.documentID),
-                                                                                                           @"documentPath" : NULL_IF_NIL(ref.path)} ]
-                                                                                                             thisObject:self];
-                                                                                                       }];
+                     [callback call:@[ @{
+                                 @"success" : @(YES),
+                                 @"documentID" : NULL_IF_NIL(ref.documentID),
+                                 @"documentPath" : NULL_IF_NIL(ref.path)
+                               } ]
+                         thisObject:self];
+                   }];
 }
 
-- (void)queryDocuments:(id)params
-{
+- (void)queryDocuments:(id)params {
   ENSURE_SINGLE_ARG(params, NSDictionary);
   KrollCallback *callback = params[@"callback"];
   NSString *collection = params[@"collection"];
   NSString *document = params[@"document"];
 
-  FIRCollectionReference *ref = [FIRFirestore.firestore collectionWithPath:collection];
-  FIRDocumentReference *documentReference = [[FIRFirestore.firestore collectionWithPath:collection] documentWithPath:document];
+  FIRCollectionReference *ref =
+      [FIRFirestore.firestore collectionWithPath:collection];
+  FIRDocumentReference *documentReference = [[FIRFirestore.firestore
+      collectionWithPath:collection] documentWithPath:document];
   FIRQuery *query = [FIRFirestore.firestore collectionWithPath:params[@"path"]];
 
   NSDictionary *parameters = params[@"parameters"];
@@ -82,7 +87,8 @@
     } else if ([op isEqualToString:@"array-contains"]) {
       query = [query queryWhereField:fieldName arrayContains:value];
     } else {
-      NSLog(@"[ERROR] Unhandled operator \"%@\" on field \"%@\"", op, fieldName);
+      NSLog(@"[ERROR] Unhandled operator \"%@\" on field \"%@\"", op,
+            fieldName);
       // Unsupported operator
     }
   }
@@ -99,7 +105,8 @@
       NSArray *orderByParameters = item;
       NSString *fieldName = orderByParameters[0];
       NSNumber *descending = orderByParameters[1];
-      query = [query queryOrderedByField:fieldName descending:[descending boolValue]];
+      query = [query queryOrderedByField:fieldName
+                              descending:[descending boolValue]];
     }
   }
 
@@ -127,105 +134,134 @@
     query = [query queryEndingBeforeValues:endBeforeValues];
   }
 
-  [query getDocumentsWithCompletion:^(FIRQuerySnapshot *_Nullable snapshot, NSError *_Nullable error) {
+  [query getDocumentsWithCompletion:^(FIRQuerySnapshot *_Nullable snapshot,
+                                      NSError *_Nullable error) {
     if (error != nil) {
-      [callback call:@[ @{
-        @"success" : @(NO),
-        @"error" : error.localizedDescription
-      } ]
+      [callback call:@[
+        @{@"success" : @(NO),
+          @"error" : error.localizedDescription}
+      ]
           thisObject:self];
       return;
     }
 
-    NSMutableArray<NSDictionary<NSString *, id> *> *documents = [NSMutableArray arrayWithCapacity:snapshot.documents.count];
+    NSMutableArray<NSDictionary<NSString *, id> *> *documents =
+        [NSMutableArray arrayWithCapacity:snapshot.documents.count];
+
+        NSString *docID =  docID = snapshot.documents[0].documentID;
 
     // Map the documents to make sure it's a bridgeable type
-    [snapshot.documents enumerateObjectsUsingBlock:^(FIRQueryDocumentSnapshot *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop) {
+    [snapshot.documents enumerateObjectsUsingBlock:^(
+                            FIRQueryDocumentSnapshot *_Nonnull obj,
+                            NSUInteger idx, BOOL *_Nonnull stop) {
+
+
       [documents addObject:[TiFirestoreUtils mappedFirestoreValue:obj.data]];
+     
     }];
-    [callback call:@[ @{
-      @"success" : @(YES),
-      @"documents" : documents
-    } ]
+    [callback call:@[
+      @{@"success" : @(YES),
+        @"documents" : documents,
+        @"documentID" : NULL_IF_NIL(docID),
+        }
+    ]
         thisObject:self];
   }];
 }
 
-- (void)getDocuments:(id)params
-{
+- (void)getDocuments:(id)params {
   ENSURE_SINGLE_ARG(params, NSDictionary);
 
   KrollCallback *callback = params[@"callback"];
   NSString *collection = params[@"collection"];
 
-  [[FIRFirestore.firestore collectionWithPath:collection] getDocumentsWithCompletion:^(FIRQuerySnapshot *_Nullable snapshot, NSError *_Nullable error) {
-    if (error != nil) {
-      [callback call:@[ @{@"success" : @(NO),
-        @"error" : error.localizedDescription} ]
-          thisObject:self];
-      return;
-    }
+  [[FIRFirestore.firestore collectionWithPath:collection]
+      getDocumentsWithCompletion:^(FIRQuerySnapshot *_Nullable snapshot,
+                                   NSError *_Nullable error) {
+        if (error != nil) {
+          [callback call:@[
+            @{@"success" : @(NO),
+              @"error" : error.localizedDescription}
+          ]
+              thisObject:self];
+          return;
+        }
 
-    NSMutableArray<NSDictionary<NSString *, id> *> *documents = [NSMutableArray arrayWithCapacity:snapshot.documents.count];
+        NSMutableArray<NSDictionary<NSString *, id> *> *documents =
+            [NSMutableArray arrayWithCapacity:snapshot.documents.count];
 
-    [snapshot.documents enumerateObjectsUsingBlock:^(FIRQueryDocumentSnapshot *_Nonnull obj, NSUInteger idx, BOOL *_Nonnull stop) {
-      [documents addObject:[TiFirestoreUtils mappedFirestoreValue:obj.data]];
-    }];
+        [snapshot.documents
+            enumerateObjectsUsingBlock:^(FIRQueryDocumentSnapshot *_Nonnull obj,
+                                         NSUInteger idx, BOOL *_Nonnull stop) {
+              [documents
+                  addObject:[TiFirestoreUtils mappedFirestoreValue:obj.data]];
+            }];
 
-    [callback call:@[ @{@"success" : @(YES),
-      @"documents" : documents} ]
-        thisObject:self];
-  }];
+        [callback call:@[
+          @{@"success" : @(YES),
+            @"documents" : documents}
+        ]
+            thisObject:self];
+      }];
 }
 
-- (void)getSingleDocument:(id)params
-{
+- (void)getSingleDocument:(id)params {
   ENSURE_SINGLE_ARG(params, NSDictionary);
 
   KrollCallback *callback = params[@"callback"];
   NSString *collection = params[@"collection"];
   NSString *document = params[@"document"];
 
-  FIRDocumentReference *documentReference = [[FIRFirestore.firestore collectionWithPath:collection] documentWithPath:document];
+  FIRDocumentReference *documentReference = [[FIRFirestore.firestore
+      collectionWithPath:collection] documentWithPath:document];
 
-  [documentReference getDocumentWithCompletion:^(FIRDocumentSnapshot *_Nullable snapshot, NSError *_Nullable error) {
-    if (error != nil) {
-      [callback call:@[ @{@"success" : @(NO),
-        @"error" : error.localizedDescription} ]
-          thisObject:self];
-      return;
-    }
+  [documentReference
+      getDocumentWithCompletion:^(FIRDocumentSnapshot *_Nullable snapshot,
+                                  NSError *_Nullable error) {
+        if (error != nil) {
+          [callback call:@[
+            @{@"success" : @(NO),
+              @"error" : error.localizedDescription}
+          ]
+              thisObject:self];
+          return;
+        }
 
-    [callback call:@[ @{@"success" : @(YES),
-      @"document" : [snapshot data]} ]
-        thisObject:self];
-  }];
+        [callback call:@[
+          @{@"success" : @(YES),
+            @"document" : [snapshot data]}
+        ]
+            thisObject:self];
+      }];
 }
 
-- (void)updateDocument:(id)params
-{
+- (void)updateDocument:(id)params {
   ENSURE_SINGLE_ARG(params, NSDictionary);
 
   KrollCallback *callback = params[@"callback"];
   NSString *collection = params[@"collection"];
-  NSDictionary *data = params[@"data"]; // TODO: Parse "FIRFieldValue" proxy types
+  NSDictionary *data =
+      params[@"data"];  // TODO: Parse "FIRFieldValue" proxy types
   NSString *document = params[@"document"];
 
-  [[[FIRFirestore.firestore collectionWithPath:collection] documentWithPath:document] updateData:data
-                                                                                      completion:^(NSError *_Nullable error) {
-                                                                                        if (error != nil) {
-                                                                                          [callback call:@[ @{@"success" : @(NO),
-                                                                                            @"error" : error.localizedDescription} ]
-                                                                                              thisObject:self];
-                                                                                          return;
-                                                                                        }
+  [[[FIRFirestore.firestore collectionWithPath:collection]
+      documentWithPath:document]
+      updateData:data
+      completion:^(NSError *_Nullable error) {
+        if (error != nil) {
+          [callback call:@[
+            @{@"success" : @(NO),
+              @"error" : error.localizedDescription}
+          ]
+              thisObject:self];
+          return;
+        }
 
-                                                                                        [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
-                                                                                      }];
+        [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+      }];
 }
 
-- (void)deleteDocument:(id)params
-{
+- (void)deleteDocument:(id)params {
   ENSURE_SINGLE_ARG(params, NSDictionary);
 
   KrollCallback *callback = params[@"callback"];
@@ -233,10 +269,47 @@
   NSDictionary *data = params[@"data"];
   NSString *document = params[@"document"];
 
-  [[[FIRFirestore.firestore collectionWithPath:collection] documentWithPath:document] deleteDocumentWithCompletion:^(NSError *_Nullable error) {
+  [[[FIRFirestore.firestore collectionWithPath:collection]
+      documentWithPath:document]
+      deleteDocumentWithCompletion:^(NSError *_Nullable error) {
+        if (error != nil) {
+          [callback call:@[
+            @{@"success" : @(NO),
+              @"error" : error.localizedDescription}
+          ]
+              thisObject:self];
+          return;
+        }
+
+        [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+      }];
+}
+
+- (FirebaseFirestoreFieldValueProxy *)increment:(id)value {
+  ENSURE_SINGLE_ARG(value, NSNumber);
+
+  FIRFieldValue *fieldValue =
+      [FIRFieldValue fieldValueForIntegerIncrement:[TiUtils intValue:value]];
+  return [[FirebaseFirestoreFieldValueProxy alloc]
+      _initWithPageContext:pageContext
+             andFieldValue:fieldValue];
+}
+
+- (void)setCollectionData:(id)params {
+  ENSURE_SINGLE_ARG(params, NSDictionary);
+
+  KrollCallback *callback = params[@"callback"];
+  NSString *collection = params[@"collection"];
+  NSString *userID = params[@"userID"];
+  NSString *examID = params[@"examID"];
+  NSDictionary *dataToUpdate = params[@"dataToUpdate"];
+
+  [[[[FIRFirestore.firestore collectionWithPath:collection] documentWithPath:userID] collectionWithPath:examID] addDocumentWithData:dataToUpdate completion:^(NSError * _Nullable error) {
     if (error != nil) {
-      [callback call:@[ @{@"success" : @(NO),
-        @"error" : error.localizedDescription} ]
+      [callback call:@[
+        @{@"success" : @(NO),
+          @"error" : error.localizedDescription}
+      ]
           thisObject:self];
       return;
     }
@@ -245,12 +318,234 @@
   }];
 }
 
-- (FirebaseFirestoreFieldValueProxy *)increment:(id)value
-{
-  ENSURE_SINGLE_ARG(value, NSNumber);
 
-  FIRFieldValue *fieldValue = [FIRFieldValue fieldValueForIntegerIncrement:[TiUtils intValue:value]];
-  return [[FirebaseFirestoreFieldValueProxy alloc] _initWithPageContext:pageContext andFieldValue:fieldValue];
+
+
+/// this works 
+
+- (void)batchSetCollectionDataWithParams:(id)params {
+  ENSURE_SINGLE_ARG(params, NSDictionary);
+
+  KrollCallback *callback = params[@"callback"];
+
+  FIRFirestore *firestore = FIRFirestore.firestore;
+  FIRWriteBatch *batch = [firestore batch];
+
+  NSString *collection = params[@"collection"];
+  NSString *userID = params[@"userID"];
+  NSString *examID = params[@"examID"];
+  NSString *type = params[@"type"];
+  FIRDocumentReference *documentReference = [[[[firestore collectionWithPath:collection] documentWithPath:userID] collectionWithPath:examID] documentWithAutoID];
+
+
+
+  NSArray *dataToAdd = params[@"dataToAdd"];
+
+  for (NSDictionary *parsedData in dataToAdd) {
+
+
+        NSLog(@"parsedData: %@", parsedData);
+
+
+    if ([type isEqualToString:@"DELETE"]) {
+      batch = [batch deleteDocument:documentReference];
+    } else if ([type isEqualToString:@"SET"]) {
+      NSLog(@"SET: >>>>");
+      NSDictionary *options = params[@"options"];
+
+      if (options[@"merge"]) {
+        batch = [batch setData:parsedData
+                   forDocument:documentReference
+                                            merge:true];
+      } else if (options[@"mergeFields"]) {
+        NSArray *mergeFields = options[@"mergeFields"];
+        batch = [batch setData:parsedData
+                   forDocument:documentReference
+                   mergeFields:mergeFields];
+      } else {
+        batch = [batch setData:parsedData forDocument:documentReference];
+      }
+    } else if ([type isEqualToString:@"UPDATE"]) {
+      batch = [batch updateData:parsedData forDocument:documentReference];
+    }
+  }
+
+
+  [batch commitWithCompletion:^(NSError *_Nullable error) {
+    if (error != nil) {
+      [callback call:@[
+        @{@"success" : @(NO),
+          @"error" : error.localizedDescription}
+      ]
+          thisObject:self];
+      return;
+    }
+
+    [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+  }];
 }
+/// this works ^^^^^^
+
+
+
+///not sure about this one
+- (void)newDocument:(id)params {
+ ENSURE_SINGLE_ARG(params, NSDictionary);
+
+  KrollCallback *callback = params[@"callback"];
+
+  FIRFirestore *firestore = FIRFirestore.firestore;
+  FIRWriteBatch *batch = [firestore batch];
+
+  NSString *collection = params[@"collection"];
+  NSString *userID = params[@"userID"];
+  NSString *examID = params[@"examID"];
+  NSString *type = params[@"type"];
+  NSDictionary *data = params[@"data"];
+
+  __block FIRDocumentReference *documentReference = [[[[firestore collectionWithPath:collection] documentWithPath:userID] collectionWithPath:examID] documentWithAutoID];
+  
+
+  [documentReference setData:data  completion:^(NSError * _Nullable error) {
+    if (error != nil) {
+      NSLog(@"Error updating document: %@", error);
+    } else {
+      NSLog(@"Document successfully updated");
+    }
+  }];
+
+}
+
+
+
+
+- (void)updateSetMergeDocument:(id)params {
+  ENSURE_SINGLE_ARG(params, NSDictionary);
+
+  KrollCallback *callback = params[@"callback"];
+  FIRFirestore *firestore = FIRFirestore.firestore;
+
+  
+  NSString *collection = params[@"collection"];
+  NSString *userID = params[@"userID"];
+  NSString *examID = params[@"examID"];
+  NSString *docId = params[@"document"];
+  NSString *type = params[@"type"];
+
+
+  FIRDocumentReference *documentReference =
+      [[[[firestore collectionWithPath:collection] documentWithPath:userID]
+          collectionWithPath:examID] documentWithPath:docId];
+  NSDictionary *dataToAdd = params[@"dataToAdd"];
+
+  if ([type isEqualToString:@"update"]) {
+    // Update the document
+    [documentReference
+        updateData:dataToAdd
+        completion:^(NSError *_Nullable error) {
+          if (error != nil) {
+            [callback call:@[
+              @{@"success" : @(NO),
+                @"error" : error.localizedDescription}
+            ]
+                thisObject:self];
+            return;
+          }
+
+          [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+        }];
+  } else if ([type isEqualToString:@"set"]) {
+    // Set the document
+    [documentReference
+           setData:dataToAdd
+        completion:^(NSError *_Nullable error) {
+          if (error != nil) {
+            [callback call:@[
+              @{@"success" : @(NO),
+                @"error" : error.localizedDescription}
+            ]
+                thisObject:self];
+            return;
+          }
+
+          [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+        }];
+  } else if ([type isEqualToString:@"delete"]) {
+    // Delete the document
+    [documentReference
+        deleteDocumentWithCompletion:^(NSError *_Nullable error) {
+          if (error != nil) {
+            [callback call:@[
+              @{@"success" : @(NO),
+                @"error" : error.localizedDescription}
+            ]
+                thisObject:self];
+            return;
+          }
+
+          [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+        }];
+  } else if ([type isEqualToString:@"merge"]) {
+    [documentReference
+           setData:dataToAdd
+             merge:YES
+        completion:^(NSError *_Nullable error) {
+          if (error != nil) {
+            [callback call:@[
+              @{@"success" : @(NO),
+                @"error" : error.localizedDescription}
+            ]
+                thisObject:self];
+            return;
+          }
+
+          [callback call:@[ @{@"success" : @(YES)} ] thisObject:self];
+        }];
+  }
+}
+
+
+- (void)getSubcollection:(id)params {
+
+    ENSURE_SINGLE_ARG(params, NSDictionary);
+
+  KrollCallback *callback = params[@"callback"];
+  FIRFirestore *firestore = FIRFirestore.firestore;
+  NSString *collection = params[@"collection"];
+  NSString *userID = params[@"userID"];
+  NSString *examID = params[@"examID"];
+
+
+  [[[[FIRFirestore.firestore collectionWithPath:collection] documentWithPath:userID] collectionWithPath:examID]
+      getDocumentsWithCompletion:^(FIRQuerySnapshot *_Nullable snapshot,
+                                   NSError *_Nullable error) {
+        if (error != nil) {
+          [callback call:@[
+            @{@"success" : @(NO),
+              @"error" : error.localizedDescription}
+          ]
+              thisObject:self];
+          return;
+        }
+
+        NSMutableArray<NSDictionary<NSString *, id> *> *documents =
+            [NSMutableArray arrayWithCapacity:snapshot.documents.count];
+
+        [snapshot.documents
+            enumerateObjectsUsingBlock:^(FIRQueryDocumentSnapshot *_Nonnull obj,
+                                         NSUInteger idx, BOOL *_Nonnull stop) {
+              [documents
+                  addObject:[TiFirestoreUtils mappedFirestoreValue:obj.data]];
+            }];
+
+        [callback call:@[
+          @{@"success" : @(YES),
+            @"documents" : documents}
+        ]
+            thisObject:self];
+      }];
+}
+
+
 
 @end
